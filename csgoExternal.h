@@ -1,0 +1,3 @@
+struct GameData;
+
+struct Player;
