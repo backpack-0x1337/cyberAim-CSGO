@@ -167,12 +167,7 @@ int ActivePlayerGlow(GameData* gd, uintptr_t glowObject, uintptr_t targetEntity)
  */
 int ActivateRadarHack(GameData* gd, uintptr_t targetEntity) {
     bool spot = true;
-
-    WriteProcessMemory(gd->hProcess,
-                       (BYTE*)(targetEntity + hz::netvars::m_bSpotted),
-                       &spot,
-                       sizeof(spot),
-                       nullptr);
+    mem::WPM<bool>(gd->hProcess, targetEntity + hz::netvars::m_bSpotted, spot);
     return 0;
 }
 
