@@ -63,13 +63,25 @@ struct Player {
     Vec3 lastPunch = {0,0,0};
 };
 
+struct Feature {
+    bool aimBot = false;
+    bool glowEsp = true;
+    bool triggerBot = false;
+    bool bHop = true;
+    bool rcs = true;
+};
+
+
 struct GameData {
     HANDLE hProcess;
     uintptr_t clientModuleBaseAddress;
     uintptr_t engineModuleBaseAddress;
     Player localPlayer;
     uintptr_t clientState;
+    Feature feature;
 };
+
+
 
 
 struct ProcInfo {
@@ -77,7 +89,6 @@ struct ProcInfo {
     LPCTSTR clientModuleName;
     LPCTSTR engineModuleName;
 };
-
 
 
 /**
@@ -113,7 +124,8 @@ Error LoadGameModuleAddNHandle(ProcInfo pi, GameData* gameData) {
     printf( "engineModuleBaseAddress: %#010x\n", gameData->engineModuleBaseAddress);
     fflush(stdout);
     return ERROR_OK;
-};
+}
+
 
 int BHop(GameData* gd) {
     gd->localPlayer.flags = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_fFlags);
@@ -125,6 +137,7 @@ int BHop(GameData* gd) {
     }
     return 0;
 }
+
 
 /**
  * Use CSGO Glow object manager to glow the target ent player
@@ -157,6 +170,7 @@ int ActivePlayerGlow(GameData* gd, uintptr_t glowObject, uintptr_t targetEntity)
 
     return 0;
 }
+
 
 /**
  * Rewrite csgo ent byte to spoted so they show on players map
@@ -191,10 +205,13 @@ int LoopEntList(GameData* gd) {
                 ActivateRadarHack(gd, targetEntity);
                 ActivePlayerGlow(gd, glowObject, targetEntity);
             }
+
+
         }
     }
     return 0;
 }
+
 
 /**
  * Change the local player flash duration to zero
@@ -209,7 +226,6 @@ int AntiFlash(GameData* gd) {
     }
     return 0;
 }
-
 
 
 /**
@@ -231,18 +247,25 @@ void AimToTargetSmooth(GameData* gd, Vec3 originalCursorLoc, Vec3 targetCursorLo
 }
 
 
+int checkTBot(GameData* gd) {
+    auto crosshair = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_iCrosshairId);
+    if (crosshair != 0 && crosshair < 64) {
+        uintptr_t entity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + ((crosshair - 1) * 0x10));
+        uintptr_t entityTeam = mem::RPM<uintptr_t>(gd->hProcess, entity + hz::netvars::m_iTeamNum);
 
-int ActiveTriggerBot(GameData* gd) {
+    }
     return 0;
 }
+
+
 /**
- * Recoil Control System, Counter recoil by moving viewangle to the opposite direction of the punch angle
+ * Recoil Control System, Counter recoil by moving view angle to the opposite direction of the punch angle
  * @param gd
  * @return
  */
 int RCS(GameData* gd) {
 
-    // Get clientState because viewangle is in clientState
+    // Get clientState because view angle is in clientState
     gd->clientState = mem::RPM<uintptr_t>(gd->hProcess, gd->engineModuleBaseAddress + hz::sig::dwClientState);
     Vec3 punchAngle = mem::RPM<Vec3>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_aimPunchAngle);
     Vec3 viewAngle = mem::RPM<Vec3>(gd->hProcess, gd->clientState + hz::sig::dwClientState_ViewAngles);
@@ -268,7 +291,12 @@ int MainLogic(GameData* gd) {
 //    gd->localPlayer.lastPunch.x = gd->localPlayer.lastPunch.y = 0;
     while (GetExitCodeProcess(gd->hProcess, &dwExit) && dwExit == STILL_ACTIVE) {
 
-        if (GetAsyncKeyState(VK_NUMPAD1) & 1) {
+        if (GetAsyncKeyState(VK_OEM_PLUS) & 1) { // key to activate TriggerBot
+            std::cout << "Input num plus" << std::endl;
+            if (gd->feature.triggerBot) {
+                gd->feature.triggerBot = false;
+                std::cout << "Trigger Bot" << std::endl;
+            }
             continue;
         }
         if (GetAsyncKeyState(VK_INSERT) & 1) {
@@ -287,7 +315,8 @@ int MainLogic(GameData* gd) {
 
         // if chair is active
         if (active) {
-            gd->localPlayer.playerEnt = FindDMAAddy(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwLocalPlayer, {0});
+            gd->localPlayer.playerEnt = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwLocalPlayer);
+//            checkTBot(gd);
             RCS(gd);
             AntiFlash(gd);
             BHop(gd);

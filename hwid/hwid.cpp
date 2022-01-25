@@ -73,7 +73,8 @@ bool hwid::isUserHWIDValid() {
     std:: string validHWID[]= {
             "0025_3857_01AD_4E27", // Kwan
             "0025_38B5_11B6_11C1",  // Jasun
-            "6212171000084" // CKL
+            "6212171000084", // CKL
+            "VDBK1BT4DJXB2C", // blackJai,
     }; //substring to be checked
 
     int position = 0;
