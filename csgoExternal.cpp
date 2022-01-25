@@ -247,12 +247,37 @@ void AimToTargetSmooth(GameData* gd, Vec3 originalCursorLoc, Vec3 targetCursorLo
 }
 
 
+/**
+ * Set CSGO dwforceattack to 5 represent shooot and then 4 to unshoot
+ * @param gd
+ */
+void shoot(GameData* gd) {
+
+    mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwForceAttack, 5);
+    Sleep(5);
+    mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwForceAttack, 4);
+}
+
+
+/**
+ * check if crosshair is aiming at enemy
+ * @param gd
+ * @return
+ */
 int checkTBot(GameData* gd) {
     auto crosshair = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_iCrosshairId);
-    if (crosshair != 0 && crosshair < 64) {
-        uintptr_t entity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + ((crosshair - 1) * 0x10));
-        uintptr_t entityTeam = mem::RPM<uintptr_t>(gd->hProcess, entity + hz::netvars::m_iTeamNum);
 
+    if (crosshair != 0 && crosshair < 64) {
+        auto entity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwEntityList + ((crosshair - 1) * 0x10));
+        auto entityTeam = mem::RPM<uintptr_t>(gd->hProcess, entity + hz::netvars::m_iTeamNum);
+        auto myTeam = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_iTeamNum);
+        auto entityHealth = mem::RPM<uintptr_t>(gd->hProcess, entity + hz::netvars::m_iHealth);
+
+        if (entityHealth > 0 and entityTeam != myTeam) { // enemy detect
+            shoot(gd);
+        } else {
+            return 0;
+        }
     }
     return 0;
 }
@@ -299,6 +324,9 @@ int MainLogic(GameData* gd) {
             }
             continue;
         }
+
+
+
         if (GetAsyncKeyState(VK_INSERT) & 1) {
             // activate cheat or deactivate cheat
             active = !active;
@@ -316,14 +344,20 @@ int MainLogic(GameData* gd) {
         // if chair is active
         if (active) {
             gd->localPlayer.playerEnt = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwLocalPlayer);
-//            checkTBot(gd);
+            BHop(gd);
             RCS(gd);
             AntiFlash(gd);
-            BHop(gd);
             LoopEntList(gd);
             }
+
+        if (GetAsyncKeyState(VK_MENU)) { // key to activate TriggerBot
+            checkTBot(gd);
+        }
+
         Sleep(1);
         }
+
+
     return ERROR_OK;
 }
 
