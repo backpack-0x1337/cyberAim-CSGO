@@ -319,15 +319,6 @@ int MainLogic(GameData* gd) {
 //    gd->localPlayer.lastPunch.x = gd->localPlayer.lastPunch.y = 0;
     while (GetExitCodeProcess(gd->hProcess, &dwExit) && dwExit == STILL_ACTIVE) {
 
-        if (GetAsyncKeyState(VK_OEM_PLUS) & 1) { // key to activate TriggerBot
-            std::cout << "Input num plus" << std::endl;
-            if (gd->feature.triggerBot) {
-                gd->feature.triggerBot = false;
-                std::cout << "Trigger Bot" << std::endl;
-            }
-            continue;
-        }
-
         if (GetAsyncKeyState(VK_INSERT) & 1) {
             // activate cheat or deactivate cheat
             active = !active;
