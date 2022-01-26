@@ -256,8 +256,9 @@ void AimToTargetSmooth(GameData* gd, Vec3 originalCursorLoc, Vec3 targetCursorLo
 void shoot(GameData* gd) {
 
     mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwForceAttack, 5);
-    Sleep(5);
+    Sleep(25);
     mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwForceAttack, 4);
+    Sleep(25);
 }
 
 

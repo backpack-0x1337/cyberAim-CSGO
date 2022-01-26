@@ -1,7 +1,7 @@
 
 #include "csgoInternal.h"
 #include "Windows.h"
-#include "stdio.h"
+#include <cstdio>
 
 struct Player {
     uintptr_t playerEnt;
