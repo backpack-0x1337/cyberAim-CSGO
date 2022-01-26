@@ -1,11 +1,11 @@
 
 #include <iostream>
 #include <Windows.h>
-#include "proc/proc.h"
-#include "mem/mem.h"
-#include "csgo.hpp"
-#include "hwid/hwid.h"
-#include "features/bhop.h"
+#include "../proc/proc.h"
+#include "../mem/mem.h"
+#include "../csgo.hpp"
+#include "../hwid/hwid.h"
+#include "../features/bhop.h"
 
 
 #define FL_ONGROUND (1<<0) // At rest / on the ground
@@ -125,6 +125,8 @@ Error LoadGameModuleAddNHandle(ProcInfo pi, GameData* gameData) {
     fflush(stdout);
     return ERROR_OK;
 }
+
+
 
 
 int BHop(GameData* gd) {
@@ -324,8 +326,6 @@ int MainLogic(GameData* gd) {
             }
             continue;
         }
-
-
 
         if (GetAsyncKeyState(VK_INSERT) & 1) {
             // activate cheat or deactivate cheat

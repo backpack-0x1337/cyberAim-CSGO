@@ -1,7 +1,7 @@
 #include <iostream>
 #include <Windows.h>
-#include "proc/proc.h"
-#include "mem/mem.h"
+#include "../proc/proc.h"
+#include "../mem/mem.h"
 
 enum Error{
     ERROR_OK,
