@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <vector>
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <cstdio>
@@ -143,11 +144,33 @@ struct GameData {
     }
 };
 
-// loop throught entity list and find all enemy object
-// Put it in a array and return it
-uintptr_t* getEnemyEntityList() {
-    return nullptr;
+std::vector<uintptr_t> GetEntityList(uintptr_t clientModuleBaseAddress) {
+    std::vector<uintptr_t> entityList;
+    for (int i = 0; i < 64; ++i) {
+        uintptr_t targetEntity = *(uintptr_t*)(clientModuleBaseAddress + hz::sig::dwEntityList + i * 0x10);
+        if (targetEntity) {
+            entityList.push_back(targetEntity);
+        }
+    }
+    return entityList;
 }
+
+
+std::vector<uintptr_t> getEnemyEntityList(GameData gd) {
+
+    std::vector<uintptr_t> entityList = GetEntityList(gd.clientModuleBaseAddress);
+    std::vector<uintptr_t> enemyEntityList;
+    for (int i = 0; i < entityList.size(); ++i) {
+        uintptr_t entity = entityList[i];
+        int entityTeam = *(int*)(entity + hz::netvars::m_iTeamNum);
+        int localPlayerTeam = *(int*)(gd.localPlayer.playerEnt + hz::netvars::m_iTeamNum);
+        if (entityTeam != localPlayerTeam && localPlayerTeam <= 9) {
+            enemyEntityList.push_back(entityList[i]);
+        }
+    }
+    return enemyEntityList;
+}
+
 
 /**
  * Cursor travel from original location to destination with given stop amount
@@ -187,6 +210,44 @@ void RCS(GameData* gd) {
         gd->localPlayer.lastPunch = {0,0,0};
     }
     return;
+}
+
+/**
+ * Use CSGO Glow object manager to glow the target ent player
+ * @param gd Game Data struct
+ * @param glowObject Glow Object manager
+ * @param targetEntity The player we want to glow
+ * @return
+ */
+void MakePlayerGlow(GameData* gd, uintptr_t targetEntity) {
+    uintptr_t glowObject = *(uintptr_t*)(gd->clientModuleBaseAddress + hz::sig::dwGlowObjectManager);
+
+    int glowIndex = *(int*)(targetEntity + hz::netvars::m_iGlowIndex);
+
+    float red = 2;
+    *(float*)(glowObject + ((glowIndex * 0x38) + 0x8)) = red;
+
+    float green = 0;
+    *(float*)(glowObject + ((glowIndex * 0x38) + 0xc)) = green;
+
+    float blue = 0;
+    *(float*)(glowObject + ((glowIndex * 0x38) + 0x10)) = blue;
+
+    float alpha = 1.7;
+    *(float*)(glowObject + ((glowIndex * 0x38) + 0x14)) = alpha;
+
+    bool temp = true;
+    *(bool*)(glowObject + ((glowIndex * 0x38) + 0x28)) = temp;
+
+    temp = false;
+    *(bool*)(glowObject + ((glowIndex * 0x38) + 0x29)) = temp;
+
+}
+
+void GlowEsp(GameData* gd, std::vector<uintptr_t> enemyEntityList) {
+    for (int i = 0; i < enemyEntityList.size(); ++i) {
+        MakePlayerGlow(gd, enemyEntityList[i]);
+    }
 }
 
 void WINAPI HackThread(HMODULE hModule) {
@@ -237,10 +298,20 @@ void WINAPI HackThread(HMODULE hModule) {
             }
         }
 
+        if (GetAsyncKeyState(VK_NUMPAD9) & 1) {
+            if (gd.feature.glowEsp) {
+                gd.feature.glowEsp = false;
+                std::cout << "Toggle glowEsp OFF" << std::endl;
+            } else {
+                gd.feature.glowEsp = true;
+                std::cout << "Toggle glowEsp ON" << std::endl;
+            }
+        }
 
         // =====================================================================================
 
         gd.localPlayer.LoadLocalPLayerEnt(gd.clientModuleBaseAddress);
+
 
         if (gd.feature.bHop) {
             gd.localPlayer.LoadPlayerFlag();
@@ -253,6 +324,12 @@ void WINAPI HackThread(HMODULE hModule) {
         if (gd.feature.rcs) { // Check if recoil boolean is true
             RCS(&gd);
         }
+
+        if (gd.feature.glowEsp) {
+            GlowEsp(&gd, getEnemyEntityList(gd));
+        }
+
+
 
 
         Sleep(1);
