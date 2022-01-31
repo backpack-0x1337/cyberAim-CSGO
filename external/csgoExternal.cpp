@@ -207,8 +207,6 @@ int LoopEntList(GameData* gd) {
                 ActivateRadarHack(gd, targetEntity);
                 ActivePlayerGlow(gd, glowObject, targetEntity);
             }
-
-
         }
     }
     return 0;
