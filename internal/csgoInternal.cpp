@@ -73,19 +73,23 @@ struct Vec3{
 struct Feature {
     bool aimBot;
     bool glowEsp;
+    bool radarEsp;
     bool triggerBot;
     bool bHop;
     bool rcs;
+    bool antiFlash;
 
     /**
      * Set Features Flag to False
      */
-    void SetupFeatureFlag() {
-        aimBot  = false;
-        glowEsp = false;
-        triggerBot = false;
-        bHop = false;
-        rcs = false;
+    void SetupFeatureFlag(bool flag) {
+        aimBot  = flag;
+        glowEsp = flag;
+        triggerBot = flag;
+        bHop = flag;
+        radarEsp = flag;
+        rcs = flag;
+        antiFlash = flag;
     }
 };
 
@@ -204,7 +208,6 @@ void RCS(GameData* gd) {
         Vec3 newViewAngle = *viewAngle + gd->localPlayer.lastPunch - punchAngle*2.f;
         newViewAngle.Normalize();
         gd->localPlayer.lastPunch = punchAngle * 2.f;
-
         AimToTargetSmooth(viewAngle, *viewAngle, newViewAngle, 150);
     } else {
         gd->localPlayer.lastPunch = {0,0,0};
@@ -250,6 +253,28 @@ void GlowEsp(GameData* gd, std::vector<uintptr_t> enemyEntityList) {
     }
 }
 
+/**
+ * set target ent to spot so they will show on csgo map
+ * @param target the player to modify
+ */
+void MakeTargetSpotted(uintptr_t target) {
+    bool spot = true;
+    *(bool*)(target + hz::netvars::m_bSpotted) = true;
+}
+
+void SpotRadarEsp(std::vector<uintptr_t> enemyEntityList) {
+    for (int i = 0; i < enemyEntityList.size(); ++i) {
+        MakeTargetSpotted(enemyEntityList[i]);
+    }
+}
+
+void AntiFlash(GameData* gd) {
+    int* flashDuration = (int*)(gd->localPlayer.playerEnt + hz::netvars::m_flFlashDuration);
+    if (*flashDuration > 0) {
+        *flashDuration = 0;
+    }
+}
+
 void WINAPI HackThread(HMODULE hModule) {
 
     //Create Console
@@ -263,12 +288,11 @@ void WINAPI HackThread(HMODULE hModule) {
 
     GameData gd;
     Error err;
-    gd.feature.SetupFeatureFlag();
 
     err = gd.LoadModuleHandle("client.dll", "engine.dll");
     if (err != ERROR_OK) {LogError(err);}
 
-    gd.feature.SetupFeatureFlag(); // set all the flags to false
+    gd.feature.SetupFeatureFlag(false); // set all the flags to false
 
     while (true) {
 
@@ -278,7 +302,7 @@ void WINAPI HackThread(HMODULE hModule) {
             break;
         }
 
-        if (GetAsyncKeyState(VK_NUMPAD7) & 1) {
+        if (GetAsyncKeyState(VK_NUMPAD1) & 1) {
             if (gd.feature.bHop) {
                 gd.feature.bHop = false;
                 std::cout << "Toggle BHop OFF" << std::endl;
@@ -288,7 +312,7 @@ void WINAPI HackThread(HMODULE hModule) {
             }
         }
 
-        if (GetAsyncKeyState(VK_NUMPAD8) & 1) {
+        if (GetAsyncKeyState(VK_NUMPAD2) & 1) {
             if (gd.feature.rcs) {
                 gd.feature.rcs = false;
                 std::cout << "Toggle RCS OFF" << std::endl;
@@ -298,7 +322,7 @@ void WINAPI HackThread(HMODULE hModule) {
             }
         }
 
-        if (GetAsyncKeyState(VK_NUMPAD9) & 1) {
+        if (GetAsyncKeyState(VK_NUMPAD3) & 1) {
             if (gd.feature.glowEsp) {
                 gd.feature.glowEsp = false;
                 std::cout << "Toggle glowEsp OFF" << std::endl;
@@ -306,6 +330,36 @@ void WINAPI HackThread(HMODULE hModule) {
                 gd.feature.glowEsp = true;
                 std::cout << "Toggle glowEsp ON" << std::endl;
             }
+        }
+
+        if (GetAsyncKeyState(VK_NUMPAD4) & 1) {
+            if (gd.feature.radarEsp) {
+                gd.feature.radarEsp = false;
+                std::cout << "Toggle radarEsp OFF" << std::endl;
+            } else {
+                gd.feature.radarEsp = true;
+                std::cout << "Toggle radarEsp ON" << std::endl;
+            }
+        }
+
+        if (GetAsyncKeyState(VK_NUMPAD5) & 1) {
+            if (gd.feature.antiFlash) {
+                gd.feature.antiFlash = false;
+                std::cout << "Toggle antiFlash OFF" << std::endl;
+            } else {
+                gd.feature.antiFlash = true;
+                std::cout << "Toggle antiFlash ON" << std::endl;
+            }
+        }
+
+        if (GetAsyncKeyState(VK_DELETE) & 1) {
+            gd.feature.SetupFeatureFlag(false);
+            std::cout << "Toggle Everything OFF" << std::endl;
+        }
+
+        if (GetAsyncKeyState(VK_INSERT) & 1) {
+            gd.feature.SetupFeatureFlag(true);
+            std::cout << "Toggle Everything ON" << std::endl;
         }
 
         // =====================================================================================
@@ -329,6 +383,13 @@ void WINAPI HackThread(HMODULE hModule) {
             GlowEsp(&gd, getEnemyEntityList(gd));
         }
 
+        if(gd.feature.radarEsp) {
+            SpotRadarEsp(getEnemyEntityList(gd));
+        }
+
+        if(gd.feature.antiFlash) {
+            AntiFlash(&gd);
+        }
 
 
 
