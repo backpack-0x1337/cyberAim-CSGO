@@ -5,6 +5,9 @@
 #include <cstdio>
 #include <tchar.h>
 #include "../csgo.hpp"
+#include "../mem/mem.h"
+
+#define FL_ONGROUND (1<<0) // At rest / on the ground
 
 enum Error{
     ERROR_OK,
@@ -67,11 +70,22 @@ struct Vec3{
 };
 
 struct Feature {
-    bool aimBot = false;
-    bool glowEsp = true;
-    bool triggerBot = false;
-    bool bHop = true;
-    bool rcs = true;
+    bool aimBot;
+    bool glowEsp;
+    bool triggerBot;
+    bool bHop;
+    bool rcs;
+
+    /**
+     * Set Features Flag to False
+     */
+    void SetupFeatureFlag() {
+        aimBot  = false;
+        glowEsp = false;
+        triggerBot = false;
+        bHop = false;
+        rcs = false;
+    }
 };
 
 
@@ -129,13 +143,53 @@ struct GameData {
     }
 };
 
-struct ProcInfo {
-    LPCTSTR clientName;
-    LPCTSTR clientModuleName;
-    LPCTSTR engineModuleName;
-};
+// loop throught entity list and find all enemy object
+// Put it in a array and return it
+uintptr_t* getEnemyEntityList() {
+    return nullptr;
+}
 
-DWORD WINAPI HackThread(HMODULE hModule) {
+/**
+ * Cursor travel from original location to destination with given stop amount
+ * @param gd
+ * @param originalCursorLoc
+ * @param targetCursorLoc
+ * @param stop
+ */
+void AimToTargetSmooth(Vec3* pViewAngle, Vec3 originalCursorLoc, Vec3 targetCursorLoc, int stop) {
+    Vec3 diff = (targetCursorLoc - originalCursorLoc) / (float)stop; // 4,0,0
+
+    Vec3 copyOri = originalCursorLoc;
+    for (int i = 0; i < stop; ++i) {
+        copyOri = copyOri + diff;
+        copyOri.Normalize();
+        std::cout << copyOri.x << std::endl; // debug
+        *pViewAngle = copyOri;
+    }
+}
+
+/**
+ * AutoMatic control gun recoil by reversing view angle by the amount of punch angle * 2
+ * @param gd
+ */
+void RCS(GameData* gd) {
+    gd->clientState = *(uintptr_t*)(gd->engineModuleBaseAddress + hz::sig::dwClientState);
+    Vec3 punchAngle = *(Vec3*)(gd->localPlayer.playerEnt + hz::netvars::m_aimPunchAngle);
+    Vec3* viewAngle= (Vec3*)(gd->clientState + hz::sig::dwClientState_ViewAngles);
+    int shotFired = *(int*)(gd->localPlayer.playerEnt + hz::netvars:: m_iShotsFired);
+    if (shotFired > 1) {
+        Vec3 newViewAngle = *viewAngle + gd->localPlayer.lastPunch - punchAngle*2.f;
+        newViewAngle.Normalize();
+        gd->localPlayer.lastPunch = punchAngle * 2.f;
+
+        AimToTargetSmooth(viewAngle, *viewAngle, newViewAngle, 150);
+    } else {
+        gd->localPlayer.lastPunch = {0,0,0};
+    }
+    return;
+}
+
+void WINAPI HackThread(HMODULE hModule) {
 
     //Create Console
     AllocConsole();
@@ -143,34 +197,67 @@ DWORD WINAPI HackThread(HMODULE hModule) {
     freopen_s(&f, "CONOUT$", "w", stdout);
 
     std::cout << "\n\nWelcome To CyberAim!\n\n" << std::endl;
-    std::cout << "\"Press Insert to Activate!\nn\n" << std::endl;
+    std::cout << "Press Insert to Activate!\n\n" << std::endl;
 
 
     GameData gd;
     Error err;
+    gd.feature.SetupFeatureFlag();
 
     err = gd.LoadModuleHandle("client.dll", "engine.dll");
     if (err != ERROR_OK) {LogError(err);}
 
+    gd.feature.SetupFeatureFlag(); // set all the flags to false
 
     while (true) {
 
+        // ====================================== Toggle Key ====================================
         if (GetAsyncKeyState(VK_END) & 1) { // first check if end key is pressed
-            std::cout << "exiting" << std::endl;
+            std::cout << "Thank You For Using Cyber Aim\nExiting...\n" << std::endl;
             break;
         }
 
-        if (!gd.localPlayer.playerEnt) { // if player ent is null
-            gd.localPlayer.LoadLocalPLayerEnt(gd.clientModuleBaseAddress);
-            continue; //back to the start of the loop
+        if (GetAsyncKeyState(VK_NUMPAD7) & 1) {
+            if (gd.feature.bHop) {
+                gd.feature.bHop = false;
+                std::cout << "Toggle BHop OFF" << std::endl;
+            } else {
+                gd.feature.bHop = true;
+                std::cout << "Toggle BHop ON" << std::endl;
+            }
         }
-        err = gd.localPlayer.LoadPlayerFlag();
 
-         if (GetAsyncKeyState(VK_SPACE) && *gd.localPlayer.flags & (1 << 0)) {
-            gd.localPlayer.LocalPlayerForceJump(gd.clientModuleBaseAddress);
+        if (GetAsyncKeyState(VK_NUMPAD8) & 1) {
+            if (gd.feature.rcs) {
+                gd.feature.rcs = false;
+                std::cout << "Toggle RCS OFF" << std::endl;
+            } else {
+                gd.feature.rcs = true;
+                std::cout << "Toggle RCS ON" << std::endl;
+            }
         }
+
+
+        // =====================================================================================
+
+        gd.localPlayer.LoadLocalPLayerEnt(gd.clientModuleBaseAddress);
+
+        if (gd.feature.bHop) {
+            gd.localPlayer.LoadPlayerFlag();
+
+            if (GetAsyncKeyState(VK_SPACE) && *gd.localPlayer.flags & FL_ONGROUND) { // BHOP
+                gd.localPlayer.LocalPlayerForceJump(gd.clientModuleBaseAddress);
+            }
+        }
+
+        if (gd.feature.rcs) { // Check if recoil boolean is true
+            RCS(&gd);
+        }
+
+
         Sleep(1);
     }
+    Sleep(500);
     fclose(f);
     FreeConsole();
     FreeLibraryAndExitThread(hModule, 0);
