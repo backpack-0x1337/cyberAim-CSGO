@@ -184,12 +184,10 @@ std::vector<uintptr_t> getEnemyEntityList(GameData gd) {
  */
 void AimToTargetSmooth(Vec3* pViewAngle, Vec3 originalCursorLoc, Vec3 targetCursorLoc, int stop) {
     Vec3 diff = (targetCursorLoc - originalCursorLoc) / (float)stop; // 4,0,0
-
     Vec3 copyOri = originalCursorLoc;
     for (int i = 0; i < stop; ++i) {
         copyOri = copyOri + diff;
         copyOri.Normalize();
-        std::cout << copyOri.x << std::endl; // debug
         *pViewAngle = copyOri;
     }
 }
