@@ -75,7 +75,9 @@ bool hwid::isUserHWIDValid() {
             "0025_38B5_11B6_11C1",  // Jasun
             "6212171000084", // CKL
             "VDBK1BT4DJXB2C",// blackJai
-            "WD-WX42DC01H26E" // pat
+            "WD-WX42DC01H26E",// pat
+            "E823_8FA6_BF53_0001_001B_444A_49C6_0E55", //qaz
+
     }; //substring to be checked
 
     int position = 0;
