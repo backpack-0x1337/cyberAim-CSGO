@@ -258,7 +258,7 @@ void GlowEsp(GameData* gd, std::vector<uintptr_t> enemyEntityList) {
  */
 void MakeTargetSpotted(uintptr_t target) {
     bool spot = true;
-    *(bool*)(target + hazedumper::netvars::m_bSpotted) = true;
+    *(bool*)(target + hazedumper::netvars::m_bSpotted) = spot;
 }
 
 void SpotRadarEsp(std::vector<uintptr_t> enemyEntityList) {
@@ -403,13 +403,13 @@ void WINAPI HackThread(HMODULE hModule) {
             GlowEsp(&gd, getEnemyEntityList(gd));
         }
 
-//        if(gd.feature.radarEsp) {
-//            SpotRadarEsp(getEnemyEntityList(gd));
-//        }
-//
-//        if(gd.feature.antiFlash) {
-//            AntiFlash(&gd);
-//        }
+        if(gd.feature.radarEsp) {
+            SpotRadarEsp(getEnemyEntityList(gd));
+        }
+
+        if(gd.feature.antiFlash) {
+            AntiFlash(&gd);
+        }
 //
 //        if(gd.feature.triggerBot) {
 //            TriggerBot(&gd);
