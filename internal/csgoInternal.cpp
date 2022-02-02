@@ -408,9 +408,9 @@ void WINAPI HackThread(HMODULE hModule) {
         }
 
 
-//        if(gd.feature.antiFlash) {
-//            AntiFlash(&gd);
-//        }
+        if(gd.feature.antiFlash) {
+            AntiFlash(&gd);
+        }
 //
 //        if(gd.feature.triggerBot) {
 //            TriggerBot(&gd);
