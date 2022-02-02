@@ -407,9 +407,10 @@ void WINAPI HackThread(HMODULE hModule) {
             SpotRadarEsp(getEnemyEntityList(gd));
         }
 
-        if(gd.feature.antiFlash) {
-            AntiFlash(&gd);
-        }
+
+//        if(gd.feature.antiFlash) {
+//            AntiFlash(&gd);
+//        }
 //
 //        if(gd.feature.triggerBot) {
 //            TriggerBot(&gd);
