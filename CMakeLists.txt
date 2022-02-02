@@ -4,6 +4,6 @@ project(csgo)
 set(CMAKE_CXX_STANDARD 20)
 
 #add_executable(hwid hwid/hwid.cpp hwid/hwid.h)
-add_executable(csgoExternal features/bhop.cpp proc/proc.cpp proc/proc.h mem/mem.cpp mem/mem.h hwid/hwid.cpp hwid/hwid.h external/csgoExternal.cpp features/bhop.h external/csgoExternal.h test.cpp)
-add_executable(test test.cpp)
+add_executable(csgoExternal features/bhop.cpp proc/proc.cpp proc/proc.h mem/mem.cpp mem/mem.h hwid/hwid.cpp hwid/hwid.h external/csgoExternal.cpp features/bhop.h external/csgoExternal.h)
+#add_executable(test test.cpp)
 add_library(csgoInternal SHARED csgo.hpp internal/csgoInternal.cpp)

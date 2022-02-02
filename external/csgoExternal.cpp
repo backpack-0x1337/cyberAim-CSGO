@@ -130,12 +130,12 @@ Error LoadGameModuleAddNHandle(ProcInfo pi, GameData* gameData) {
 
 
 int BHop(GameData* gd) {
-    gd->localPlayer.flags = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_fFlags);
+    gd->localPlayer.flags = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_fFlags);
 
 
     if (GetAsyncKeyState(VK_SPACE) && gd->localPlayer.flags & FL_ONGROUND) {
         int x = 6;
-        mem::WPM<int>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwForceJump, x);
+        mem::WPM<int>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwForceJump, x);
     }
     return 0;
 }
@@ -150,7 +150,7 @@ int BHop(GameData* gd) {
  */
 int ActivePlayerGlow(GameData* gd, uintptr_t glowObject, uintptr_t targetEntity) {
     // fix this shitty glow
-    int glowIndex = (int)mem::RPM<uintptr_t>(gd->hProcess, targetEntity + hz::netvars::m_iGlowIndex);
+    int glowIndex = (int)mem::RPM<uintptr_t>(gd->hProcess, targetEntity + hazedumper::netvars::m_iGlowIndex);
 
     float red = 2;
     mem::WPM<float>(gd->hProcess, (glowObject + ((glowIndex * 0x38) + 0x8)), red);
@@ -183,7 +183,7 @@ int ActivePlayerGlow(GameData* gd, uintptr_t glowObject, uintptr_t targetEntity)
  */
 int ActivateRadarHack(GameData* gd, uintptr_t targetEntity) {
     bool spot = true;
-    mem::WPM<bool>(gd->hProcess, targetEntity + hz::netvars::m_bSpotted, spot);
+    mem::WPM<bool>(gd->hProcess, targetEntity + hazedumper::netvars::m_bSpotted, spot);
     return 0;
 }
 
@@ -195,12 +195,12 @@ int ActivateRadarHack(GameData* gd, uintptr_t targetEntity) {
  */
 int LoopEntList(GameData* gd) {
     // Glow Object Manager
-    auto glowObject = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwGlowObjectManager);
+    auto glowObject = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwGlowObjectManager);
     for (int i = 0; i < 64; i++) {
-        auto targetEntity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwEntityList + i * 0x10);
+        auto targetEntity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwEntityList + i * 0x10);
         if (targetEntity) { // if there is an enemy
-            auto targetTeam = mem::RPM<uintptr_t>(gd->hProcess, targetEntity + hz::netvars::m_iTeamNum);
-            auto myTeam = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_iTeamNum);
+            auto targetTeam = mem::RPM<uintptr_t>(gd->hProcess, targetEntity + hazedumper::netvars::m_iTeamNum);
+            auto myTeam = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_iTeamNum);
 
             // check whether target is in the enemy team
             if (targetTeam != myTeam && myTeam <= 9) {
@@ -219,10 +219,10 @@ int LoopEntList(GameData* gd) {
  * @return
  */
 int AntiFlash(GameData* gd) {
-    auto flashDuration = mem::RPM<uintptr_t>(gd->hProcess, (gd->localPlayer.playerEnt + hz::netvars::m_flFlashDuration));
+    auto flashDuration = mem::RPM<uintptr_t>(gd->hProcess, (gd->localPlayer.playerEnt + hazedumper::netvars::m_flFlashDuration));
     if (flashDuration > 0) {
         int temp = 0;
-        mem::WPM<int>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_flFlashDuration, temp);
+        mem::WPM<int>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_flFlashDuration, temp);
     }
     return 0;
 }
@@ -242,7 +242,7 @@ void AimToTargetSmooth(GameData* gd, Vec3 originalCursorLoc, Vec3 targetCursorLo
     for (int i = 0; i < stop; ++i) {
         copyOri = copyOri + diff;
         copyOri.Normalize();
-        mem::WPM(gd->hProcess, gd->clientState + hz::sig::dwClientState_ViewAngles, copyOri);
+        mem::WPM(gd->hProcess, gd->clientState + hazedumper::signatures::dwClientState_ViewAngles, copyOri);
     }
 }
 
@@ -253,9 +253,9 @@ void AimToTargetSmooth(GameData* gd, Vec3 originalCursorLoc, Vec3 targetCursorLo
  */
 void shoot(GameData* gd) {
 
-    mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwForceAttack, 5);
+    mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwForceAttack, 5);
     Sleep(25);
-    mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwForceAttack, 4);
+    mem::WPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwForceAttack, 4);
     Sleep(25);
 }
 
@@ -266,13 +266,13 @@ void shoot(GameData* gd) {
  * @return
  */
 int checkTBot(GameData* gd) {
-    auto crosshair = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_iCrosshairId);
+    auto crosshair = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_iCrosshairId);
 
     if (crosshair != 0 && crosshair < 64) {
-        auto entity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwEntityList + ((crosshair - 1) * 0x10));
-        auto entityTeam = mem::RPM<uintptr_t>(gd->hProcess, entity + hz::netvars::m_iTeamNum);
-        auto myTeam = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_iTeamNum);
-        auto entityHealth = mem::RPM<uintptr_t>(gd->hProcess, entity + hz::netvars::m_iHealth);
+        auto entity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwEntityList + ((crosshair - 1) * 0x10));
+        auto entityTeam = mem::RPM<uintptr_t>(gd->hProcess, entity + hazedumper::netvars::m_iTeamNum);
+        auto myTeam = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_iTeamNum);
+        auto entityHealth = mem::RPM<uintptr_t>(gd->hProcess, entity + hazedumper::netvars::m_iHealth);
 
         if (entityHealth > 0 and entityTeam != myTeam) { // enemy detect
             shoot(gd);
@@ -292,10 +292,10 @@ int checkTBot(GameData* gd) {
 int RCS(GameData* gd) {
 
     // Get clientState because view angle is in clientState
-    gd->clientState = mem::RPM<uintptr_t>(gd->hProcess, gd->engineModuleBaseAddress + hz::sig::dwClientState);
-    Vec3 punchAngle = mem::RPM<Vec3>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_aimPunchAngle);
-    Vec3 viewAngle = mem::RPM<Vec3>(gd->hProcess, gd->clientState + hz::sig::dwClientState_ViewAngles);
-    int isShotFired = mem::RPM<int>(gd->hProcess, gd->localPlayer.playerEnt + hz::netvars::m_iShotsFired);
+    gd->clientState = mem::RPM<uintptr_t>(gd->hProcess, gd->engineModuleBaseAddress + hazedumper::signatures::dwClientState);
+    Vec3 punchAngle = mem::RPM<Vec3>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_aimPunchAngle);
+    Vec3 viewAngle = mem::RPM<Vec3>(gd->hProcess, gd->clientState + hazedumper::signatures::dwClientState_ViewAngles);
+    int isShotFired = mem::RPM<int>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_iShotsFired);
     if (isShotFired > 1) {
         Vec3 newViewAngle = ((viewAngle + gd->localPlayer.lastPunch - punchAngle * 2.f));
         newViewAngle.Normalize();
@@ -333,7 +333,7 @@ int MainLogic(GameData* gd) {
 
         // if chair is active
         if (active) {
-            gd->localPlayer.playerEnt = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hz::sig::dwLocalPlayer);
+            gd->localPlayer.playerEnt = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwLocalPlayer);
             BHop(gd);
             RCS(gd);
             AntiFlash(gd);
