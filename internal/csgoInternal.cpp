@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <tchar.h>
 #include "../csgo.hpp"
-#include "../mem/mem.h"
 
 #define FL_ONGROUND (1<<0) // At rest / on the ground
 
@@ -106,7 +105,7 @@ struct Player {
             return ERROR_CLIENTMOD_INVALID;
         }
 
-        playerEnt = *(uintptr_t*)(clientModuleBaseAddress + hz::sig::dwLocalPlayer);
+        playerEnt = *(uintptr_t*)(clientModuleBaseAddress + hazedumper::signatures::dwLocalPlayer);
 
         if (!playerEnt) {
             return ERROR_PLAYERENT_NULL;
@@ -118,12 +117,12 @@ struct Player {
         if (!playerEnt) {
             return ERROR_PLAYERENT_NULL;
         }
-        flags = (uintptr_t*)(playerEnt + hz::netvars::m_fFlags);
+        flags = (uintptr_t*)(playerEnt + hazedumper::netvars::m_fFlags);
         return ERROR_OK;
     }
 
     Error LocalPlayerForceJump(uintptr_t clientModuleBaseAddress) {
-        fJump = (uintptr_t*)(clientModuleBaseAddress + hz::sig::dwForceJump);
+        fJump = (uintptr_t*)(clientModuleBaseAddress + hazedumper::signatures::dwForceJump);
         *fJump = 6;
         return ERROR_OK;
     }
@@ -151,7 +150,7 @@ struct GameData {
 std::vector<uintptr_t> GetEntityList(uintptr_t clientModuleBaseAddress) {
     std::vector<uintptr_t> entityList;
     for (int i = 0; i < 64; ++i) {
-        uintptr_t targetEntity = *(uintptr_t*)(clientModuleBaseAddress + hz::sig::dwEntityList + i * 0x10);
+        uintptr_t targetEntity = *(uintptr_t*)(clientModuleBaseAddress + hazedumper::signatures::dwEntityList + i * 0x10);
         if (targetEntity) {
             entityList.push_back(targetEntity);
         }
@@ -166,8 +165,8 @@ std::vector<uintptr_t> getEnemyEntityList(GameData gd) {
     std::vector<uintptr_t> enemyEntityList;
     for (int i = 0; i < entityList.size(); ++i) {
         uintptr_t entity = entityList[i];
-        int entityTeam = *(int*)(entity + hz::netvars::m_iTeamNum);
-        int localPlayerTeam = *(int*)(gd.localPlayer.playerEnt + hz::netvars::m_iTeamNum);
+        int entityTeam = *(int*)(entity + hazedumper::netvars::m_iTeamNum);
+        int localPlayerTeam = *(int*)(gd.localPlayer.playerEnt + hazedumper::netvars::m_iTeamNum);
         if (entityTeam != localPlayerTeam && localPlayerTeam <= 9) {
             enemyEntityList.push_back(entityList[i]);
         }
@@ -200,10 +199,10 @@ void AimToTargetSmooth(Vec3* pViewAngle, Vec3 originalCursorLoc, Vec3 targetCurs
  * @param gd
  */
 void RCS(GameData* gd) {
-    gd->clientState = *(uintptr_t*)(gd->engineModuleBaseAddress + hz::sig::dwClientState);
-    Vec3 punchAngle = *(Vec3*)(gd->localPlayer.playerEnt + hz::netvars::m_aimPunchAngle);
-    Vec3* viewAngle= (Vec3*)(gd->clientState + hz::sig::dwClientState_ViewAngles);
-    int shotFired = *(int*)(gd->localPlayer.playerEnt + hz::netvars:: m_iShotsFired);
+    gd->clientState = *(uintptr_t*)(gd->engineModuleBaseAddress + hazedumper::signatures::dwClientState);
+    Vec3 punchAngle = *(Vec3*)(gd->localPlayer.playerEnt + hazedumper::netvars::m_aimPunchAngle);
+    Vec3* viewAngle= (Vec3*)(gd->clientState + hazedumper::signatures::dwClientState_ViewAngles);
+    int shotFired = *(int*)(gd->localPlayer.playerEnt + hazedumper::netvars:: m_iShotsFired);
     if (shotFired > 1) {
         Vec3 newViewAngle = *viewAngle + gd->localPlayer.lastPunch - punchAngle*2.f;
         newViewAngle.Normalize();
@@ -223,9 +222,9 @@ void RCS(GameData* gd) {
  * @return
  */
 void MakePlayerGlow(GameData* gd, uintptr_t targetEntity) {
-    uintptr_t glowObject = *(uintptr_t*)(gd->clientModuleBaseAddress + hz::sig::dwGlowObjectManager);
+    uintptr_t glowObject = *(uintptr_t*)(gd->clientModuleBaseAddress + hazedumper::signatures::dwGlowObjectManager);
 
-    int glowIndex = *(int*)(targetEntity + hz::netvars::m_iGlowIndex);
+    int glowIndex = *(int*)(targetEntity + hazedumper::netvars::m_iGlowIndex);
 
     float red = 2;
     *(float*)(glowObject + ((glowIndex * 0x38) + 0x8)) = red;
@@ -259,7 +258,7 @@ void GlowEsp(GameData* gd, std::vector<uintptr_t> enemyEntityList) {
  */
 void MakeTargetSpotted(uintptr_t target) {
     bool spot = true;
-    *(bool*)(target + hz::netvars::m_bSpotted) = true;
+    *(bool*)(target + hazedumper::netvars::m_bSpotted) = true;
 }
 
 void SpotRadarEsp(std::vector<uintptr_t> enemyEntityList) {
@@ -269,9 +268,28 @@ void SpotRadarEsp(std::vector<uintptr_t> enemyEntityList) {
 }
 
 void AntiFlash(GameData* gd) {
-    int* flashDuration = (int*)(gd->localPlayer.playerEnt + hz::netvars::m_flFlashDuration);
+    int* flashDuration = (int*)(gd->localPlayer.playerEnt + hazedumper::netvars::m_flFlashDuration);
     if (*flashDuration > 0) {
         *flashDuration = 0;
+    }
+}
+
+void shoot(GameData* gd) {
+    *(uintptr_t*)(gd->clientModuleBaseAddress + hazedumper::signatures::dwForceAttack) =  5;
+    Sleep(25);
+    *(uintptr_t*)(gd->clientModuleBaseAddress + hazedumper::signatures::dwForceAttack) =  4;
+    Sleep(25);
+}
+
+void TriggerBot(GameData* gd) {
+    uintptr_t crossHairTarget = *(uintptr_t*)(gd->localPlayer.playerEnt + hazedumper::netvars::m_iCrosshairId);
+    if (!crossHairTarget) {
+        uintptr_t crossHairTargetTeam = *(uintptr_t*)(crossHairTarget + hazedumper::netvars::m_iTeamNum);
+        uintptr_t crossHairTargetHealth = *(uintptr_t*)(crossHairTarget + hazedumper::netvars::m_iHealth);
+        uintptr_t localPlayerTeam = *(uintptr_t*)(gd->localPlayer.playerEnt + hazedumper::netvars::m_iTeamNum);
+        if (crossHairTargetTeam != localPlayerTeam && crossHairTargetHealth != 0) {
+            shoot(gd);
+        }
     }
 }
 
@@ -295,7 +313,6 @@ void WINAPI HackThread(HMODULE hModule) {
     gd.feature.SetupFeatureFlag(false); // set all the flags to false
 
     while (true) {
-
         // ====================================== Toggle Key ====================================
         if (GetAsyncKeyState(VK_END) & 1) { // first check if end key is pressed
             std::cout << "Thank You For Using Cyber Aim\nExiting...\n" << std::endl;
@@ -364,7 +381,10 @@ void WINAPI HackThread(HMODULE hModule) {
 
         // =====================================================================================
 
-        gd.localPlayer.LoadLocalPLayerEnt(gd.clientModuleBaseAddress);
+        err = gd.localPlayer.LoadLocalPLayerEnt(gd.clientModuleBaseAddress);
+        if (err == ERROR_PLAYERENT_NULL) {
+            continue;
+        }
 
 
         if (gd.feature.bHop) {
@@ -383,13 +403,17 @@ void WINAPI HackThread(HMODULE hModule) {
             GlowEsp(&gd, getEnemyEntityList(gd));
         }
 
-        if(gd.feature.radarEsp) {
-            SpotRadarEsp(getEnemyEntityList(gd));
-        }
-
-        if(gd.feature.antiFlash) {
-            AntiFlash(&gd);
-        }
+//        if(gd.feature.radarEsp) {
+//            SpotRadarEsp(getEnemyEntityList(gd));
+//        }
+//
+//        if(gd.feature.antiFlash) {
+//            AntiFlash(&gd);
+//        }
+//
+//        if(gd.feature.triggerBot) {
+//            TriggerBot(&gd);
+//        }
 
 
 
