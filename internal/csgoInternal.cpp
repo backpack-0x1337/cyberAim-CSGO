@@ -283,9 +283,10 @@ void shoot(GameData* gd) {
 
 void TriggerBot(GameData* gd) {
     uintptr_t crossHairTarget = *(uintptr_t*)(gd->localPlayer.playerEnt + hazedumper::netvars::m_iCrosshairId);
-    if (!crossHairTarget) {
-        uintptr_t crossHairTargetTeam = *(uintptr_t*)(crossHairTarget + hazedumper::netvars::m_iTeamNum);
-        uintptr_t crossHairTargetHealth = *(uintptr_t*)(crossHairTarget + hazedumper::netvars::m_iHealth);
+    if (crossHairTarget != 0 && crossHairTarget < 64) { // 64 max player count
+        uintptr_t entity = *(uintptr_t*)(gd->clientModuleBaseAddress + hazedumper::signatures::dwEntityList + ((crossHairTarget - 1) * 0x10));
+        uintptr_t crossHairTargetTeam = *(uintptr_t*)(entity + hazedumper::netvars::m_iTeamNum);
+        uintptr_t crossHairTargetHealth = *(uintptr_t*)(entity + hazedumper::netvars::m_iHealth);
         uintptr_t localPlayerTeam = *(uintptr_t*)(gd->localPlayer.playerEnt + hazedumper::netvars::m_iTeamNum);
         if (crossHairTargetTeam != localPlayerTeam && crossHairTargetHealth != 0) {
             shoot(gd);
@@ -411,10 +412,10 @@ void WINAPI HackThread(HMODULE hModule) {
         if(gd.feature.antiFlash) {
             AntiFlash(&gd);
         }
-//
-//        if(gd.feature.triggerBot) {
-//            TriggerBot(&gd);
-//        }
+
+        if(gd.feature.triggerBot && GetAsyncKeyState(VK_MENU)) {
+            TriggerBot(&gd);
+        }
 
 
 
