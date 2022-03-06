@@ -5,8 +5,8 @@
 #include <TlHelp32.h>
 #include <cstdio>
 #include <tchar.h>
+#include <cmath>
 #include "../csgo.hpp"
-
 #define FL_ONGROUND (1<<0) // At rest / on the ground
 
 enum Error{
@@ -61,6 +61,8 @@ struct Vec3{
     Vec3 operator/(float d) {
         return { x / d, y / d, z / d };
     }
+
+
     void Normalize() {
         while (y < -180) { y += 360; }
         while (y > 180) { y -= 360; }
@@ -91,6 +93,8 @@ struct Feature {
         antiFlash = flag;
     }
 };
+
+struct GameData;
 
 
 struct Player {
@@ -126,6 +130,15 @@ struct Player {
         *fJump = 6;
         return ERROR_OK;
     }
+
+    Vec3* GetLocalPlayerOriginP() {
+        return (Vec3*)(*(uintptr_t*)this->playerEnt + hazedumper::netvars::m_vecOrigin);
+    }
+
+    Vec3* GetLocalPlayerViewOffsetP() {
+        return (Vec3*)(*(uintptr_t*)this->playerEnt + hazedumper::netvars::m_vecViewOffset);
+    }
+
 };
 
 
@@ -145,6 +158,28 @@ struct GameData {
         }
         return ERROR_OK;
     }
+
+
+//    uintptr_t* GetPlayerByIndex(int index) {
+//        auto* entityList = (uintptr_t*)(clientModuleBaseAddress + hazedumper::signatures::dwEntityList);
+//        return (uintptr_t*)(entityList + index * 0x10);
+//    }
+//
+//    int GetMaxPlayers() {
+//        return (int)(*(uintptr_t*)(engineModuleBaseAddress + hazedumper::signatures::dwClientState) + hazedumper::signatures::dwClientState_MaxPlayer);
+//    }
+//
+//    Vec3* GetBonePosition(int boneID) {
+//        uintptr_t boneMatrix = *(uintptr_t*)(*(uintptr_t*)this + hazedumper::netvars::m_dwBoneMatrix);
+//        static Vec3 bonePos; //todo why static
+//        bonePos.x = *(float*)(boneMatrix + 0x30 * boneID + 0x0c);
+//        bonePos.y = *(float*)(boneMatrix + 0x30 * boneID + 0x1c);
+//        bonePos.z = *(float*)(boneMatrix + 0x30 * boneID + 0x2c);
+//        return &bonePos;
+//    }
+
+
+
 };
 
 std::vector<uintptr_t> GetEntityList(uintptr_t clientModuleBaseAddress) {
@@ -245,7 +280,7 @@ void MakePlayerGlow(GameData* gd, uintptr_t targetEntity) {
 }
 
 void GlowEsp(GameData* gd, std::vector<uintptr_t> enemyEntityList) {
-    for (int i = 0; i < enemyEntityList.size(); ++i) {
+    for(int i = 0; i < enemyEntityList.size(); ++i) {
         MakePlayerGlow(gd, enemyEntityList[i]);
     }
 }
@@ -291,6 +326,21 @@ void TriggerBot(GameData* gd) {
         }
     }
 }
+
+
+float GetDistance(GameData* gd, Vec3 targetVec) {
+    Vec3 myPos = *(Vec3*)gd->localPlayer.GetLocalPlayerOriginP();
+    Vec3 diff = myPos - targetVec;
+    return sqrt(diff.x*diff.x + diff.y*diff.y + diff.z*diff.z);
+}
+
+//uintptr_t* GetClosestEnemy() {
+//    return NULL;
+//}
+//
+//void AimAt(GameData* gd) {
+//    return;
+//}
 
 void WINAPI HackThread(HMODULE hModule) {
 
@@ -415,7 +465,8 @@ void WINAPI HackThread(HMODULE hModule) {
             TriggerBot(&gd);
         }
 
-
+//        AimAt(&gd);
+//        GetDistance(&gd, *(Vec3*)(getEnemyEntityList(gd)[0] + hazedumper::netvars::m_vecOrigin));
 
         Sleep(1);
     }
