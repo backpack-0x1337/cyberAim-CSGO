@@ -1,4 +1,6 @@
 # CS:GO Game Mod
+![image](https://user-images.githubusercontent.com/71382503/161560537-bc80a3be-3eaf-4890-8a9a-e4a39cb146bd.png)
+
 This is a CS:GO mod to make players glow, remove gun recoil & flashes.
 
 # How to use
