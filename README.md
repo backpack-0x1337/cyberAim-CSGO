@@ -1,4 +1,4 @@
-# CSGO Game Mod
+# CSGO Game Modification
 This is a csgo mod to make player glow, remove gun's recoil & flashes.
 
 # How to use
