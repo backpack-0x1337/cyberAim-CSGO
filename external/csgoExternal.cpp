@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <Windows.h>
+#include <TlHelp32.h>
 #include "../proc/proc.h"
 #include "../mem/mem.h"
 #include "../csgo.hpp"
@@ -9,6 +10,8 @@
 
 
 #define FL_ONGROUND (1<<0) // At rest / on the ground
+#define EnemyPen 0x000000FF
+
 
 enum Error{
     ERROR_OK,
@@ -55,6 +58,14 @@ struct Vec3{
     }
 };
 
+struct ViewMatrix {
+    float* operator[ ](int index) {
+        return matrix[index];
+    }
+
+    float matrix[4][4];
+};
+
 struct Player {
     uintptr_t playerEnt;
     uintptr_t fJump;
@@ -65,12 +76,38 @@ struct Player {
 
 struct Feature {
     bool aimBot = false;
-    bool glowEsp = true;
+    bool glowEsp = false;
     bool triggerBot = false;
     bool bHop = true;
     bool rcs = true;
+    bool boxEsp = false;
+    bool lineEsp = false;
 };
 
+struct BoxEspConfig {
+    HBRUSH enemyBrush;
+    int screenX;
+    int screenY;
+
+    void SetEnemyBrushColor() {
+        enemyBrush = CreateSolidBrush(0x000000FF);
+    }
+
+    void SetScreenSize(int size_x, int size_y) {
+        screenX = 2560;
+        screenY = 1440;
+    }
+
+    /**
+     *
+     *
+     * Set Esp Config Color and set size of screen
+     */
+    void SetDefaultConfig() {
+        SetEnemyBrushColor();
+        SetScreenSize(GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+    }
+};
 
 struct GameData {
     HANDLE hProcess;
@@ -79,9 +116,9 @@ struct GameData {
     Player localPlayer;
     uintptr_t clientState;
     Feature feature;
+    BoxEspConfig boxEspData;
+    HDC hdc;
 };
-
-
 
 
 struct ProcInfo {
@@ -188,29 +225,6 @@ int ActivateRadarHack(GameData* gd, uintptr_t targetEntity) {
 }
 
 
-/**
- * This function loop through all players ent list
- * @param gd GameData Struct
- * @return 0
- */
-int LoopEntList(GameData* gd) {
-    // Glow Object Manager
-    auto glowObject = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwGlowObjectManager);
-    for (int i = 0; i < 64; i++) {
-        auto targetEntity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwEntityList + i * 0x10);
-        if (targetEntity) { // if there is an enemy
-            auto targetTeam = mem::RPM<uintptr_t>(gd->hProcess, targetEntity + hazedumper::netvars::m_iTeamNum);
-            auto myTeam = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_iTeamNum);
-
-            // check whether target is in the enemy team
-            if (targetTeam != myTeam && myTeam <= 9) {
-                ActivateRadarHack(gd, targetEntity);
-                ActivePlayerGlow(gd, glowObject, targetEntity);
-            }
-        }
-    }
-    return 0;
-}
 
 
 /**
@@ -309,12 +323,114 @@ int RCS(GameData* gd) {
     return 0;
 }
 
+Vec3 WorldToScreen(const Vec3 pos, ViewMatrix matrix, int screenX, int screenY) {
+    float _x = matrix[0][0] * pos.x + matrix[0][1] * pos.y + matrix[0][2] * pos.z + matrix[0][3];
+    float _y = matrix[1][0] * pos.x + matrix[1][1] * pos.y + matrix[1][2] * pos.z + matrix[1][3];
+
+    float w = matrix[3][0] * pos.x + matrix[3][1] * pos.y + matrix[3][2] * pos.z + matrix[3][3];
+
+    float inv_w = 1.f / w;
+    _x *= inv_w;
+    _y *= inv_w;
+
+    float x = screenX * .5f;
+    float y = screenY * .5f;
+
+    x += 0.5f * _x * screenX + 0.5f;
+    y -= 0.5f * _y * screenY + 0.5f;
+
+    return { x,y,w };
+}
+
+void DrawFilledRect(int x, int y, int w, int h, GameData* gd)
+{
+    RECT rect = { x, y, x + w, y + h };
+    FillRect(gd->hdc, &rect, gd->boxEspData.enemyBrush);
+}
+
+void DrawBorderBox(int x, int y, int w, int h, int thickness, GameData* gd)
+{
+    DrawFilledRect(x, y, w, thickness, gd); //Top horiz line
+    DrawFilledRect(x, y, thickness, h, gd); //Left vertical line
+    DrawFilledRect((x + w), y, thickness, h, gd); //right vertical line
+    DrawFilledRect(x, y + h, w + thickness, thickness, gd); //bottom horiz line
+}
+
+void DrawLine(float StartX, float StartY, float EndX, float EndY, GameData* gd)
+{
+    int a, b = 0;
+    HPEN hOPen;
+    HPEN hNPen = CreatePen(PS_SOLID, 5, EnemyPen);// penstyle, width, color
+    hOPen = (HPEN)SelectObject(gd->hdc, hNPen);
+    MoveToEx(gd->hdc, StartX, StartY, NULL); //start
+    a = LineTo(gd->hdc, EndX, EndY); //end
+    DeleteObject(SelectObject(gd->hdc, hOPen));
+}
+
+void BoxEsp(GameData* gd, ViewMatrix vm, uintptr_t targetEnt) {
+//    int health = mem::RPM<int>(gd->hProcess, targetEnt + hazedumper::netvars::m_iHealth);
+    Vec3 pos = mem::RPM<Vec3>(gd->hProcess, targetEnt + hazedumper::netvars::m_vecOrigin);
+
+    Vec3 head;
+    head.x = pos.x;
+    head.y = pos.y;
+    head.z = pos.z + 75.f;
+    Vec3 screenPos = WorldToScreen(pos, vm, gd->boxEspData.screenX, gd->boxEspData.screenY);
+    Vec3 screenHead = WorldToScreen(head, vm, gd->boxEspData.screenX, gd->boxEspData.screenY);
+    float height = screenHead.y - screenPos.y;
+    float width = height / 2.4f;
+    if (screenPos.z >= 0.01f) {
+        if (gd->feature.lineEsp) {
+            DrawLine(gd->boxEspData.screenX / 2, gd->boxEspData.screenY, screenPos.x, screenPos.y, gd);//    DrawLine(0, 0, 640, -360, gd);
+        }
+        else {
+            DrawBorderBox(screenPos.x - (width / 2), screenPos.y, width, height, 5, gd);//    DrawLine(gd->boxEspData.screenX / 2, gd->boxEspData.screenY, screenPos.x, screenPos.y, gd);
+        }
+    }
+
+}
+
+/**
+ * This function loop through all players ent list
+ * @param gd GameData Struct
+ * @return 0
+ */
+int LoopEntList(GameData* gd) {
+    // Glow Object Manager
+    auto glowObject = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwGlowObjectManager);
+    auto vm = mem::RPM<ViewMatrix>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwViewMatrix);
+    auto myTeam = mem::RPM<uintptr_t>(gd->hProcess, gd->localPlayer.playerEnt + hazedumper::netvars::m_iTeamNum);
+
+    for (int i = 0; i < 64; i++) {
+        auto targetEntity = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwEntityList + i * 0x10);
+        if (targetEntity) { // if there is an enemy
+            auto targetTeam = mem::RPM<uintptr_t>(gd->hProcess, targetEntity + hazedumper::netvars::m_iTeamNum);
+            int health = mem::RPM<int>(gd->hProcess, targetEntity + hazedumper::netvars::m_iHealth);
+
+            // check whether target is in the enemy team
+            if (targetTeam != myTeam && myTeam <= 9 && health > 0 && health <= 100) {
+                if (gd->feature.glowEsp) {
+                    ActivateRadarHack(gd, targetEntity);
+                    ActivePlayerGlow(gd, glowObject, targetEntity);
+                }
+                if (gd->feature.boxEsp) {
+                    BoxEsp(gd, vm, targetEntity);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 
 int MainLogic(GameData* gd) {
 
-    bool active = true;
+    printf( "\n\nWelcome To CyberAim!\n\n");fflush(stdout);
+    printf( "Press Insert to Activate!\n\n");fflush(stdout);
+
+    bool active = TRUE;
     DWORD dwExit = 0;
-//    gd->localPlayer.lastPunch.x = gd->localPlayer.lastPunch.y = 0;
+
     while (GetExitCodeProcess(gd->hProcess, &dwExit) && dwExit == STILL_ACTIVE) {
 
         if (GetAsyncKeyState(VK_INSERT) & 1) {
@@ -327,11 +443,42 @@ int MainLogic(GameData* gd) {
             }
             fflush(stdout);
         }
+
+        if (GetAsyncKeyState(VK_F1) & 1) {
+            if (gd->feature.boxEsp) {
+                gd->feature.boxEsp = false;
+                std::cout << "Toggle boxEsp OFF" << std::endl;
+            } else {
+                gd->feature.boxEsp = true;
+                std::cout << "Toggle boxEsp ON" << std::endl;
+            }
+        }
+        if (GetAsyncKeyState(VK_F2) & 1) {
+            if (gd->feature.lineEsp) {
+                gd->feature.lineEsp = false;
+                std::cout << "Toggle lineEsp OFF" << std::endl;
+            } else {
+                gd->feature.lineEsp = true;
+                std::cout << "Toggle lineEsp ON" << std::endl;
+            }
+        }
+        if (GetAsyncKeyState(VK_F3) & 1) {
+            if (gd->feature.glowEsp) {
+                gd->feature.glowEsp = false;
+                std::cout << "Toggle glowEsp OFF" << std::endl;
+            } else {
+                gd->feature.glowEsp = true;
+                std::cout << "Toggle glowEsp ON" << std::endl;
+            }
+        }
+
         if (GetAsyncKeyState(VK_END) & 1) {
             break;
         }
 
-        // if chair is active
+
+
+        // if cheat is activated
         if (active) {
             gd->localPlayer.playerEnt = mem::RPM<uintptr_t>(gd->hProcess, gd->clientModuleBaseAddress + hazedumper::signatures::dwLocalPlayer);
             BHop(gd);
@@ -344,10 +491,9 @@ int MainLogic(GameData* gd) {
             checkTBot(gd);
         }
 
-        Sleep(1);
+        Sleep(10);
         }
-
-
+    printf( "Thank you For Choosing CyberAim!\n");fflush(stdout);
     return ERROR_OK;
 }
 
@@ -367,12 +513,11 @@ int main() {
     if (err != ERROR_OK) {
         return LogError(err);
     }
-    printf( "\n\nWelcome To CyberAim!\n\n");fflush(stdout);
-    printf( "Press Insert to Activate!\n\n");fflush(stdout);
 
+    gameData.hdc = GetDC(FindWindowA(NULL, TEXT(pi.clientName)));
+    gameData.boxEspData.SetDefaultConfig();
 
     MainLogic(&gameData);
-    printf( "Thank you For Choosing CyberAim!\n");fflush(stdout);
     Sleep(1000);
     return 0;
 }

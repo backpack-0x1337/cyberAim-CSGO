@@ -428,6 +428,7 @@ void WINAPI HackThread(HMODULE hModule) {
             std::cout << "Toggle Everything ON" << std::endl;
         }
 
+
         // =====================================================================================
 
         err = gd.localPlayer.LoadLocalPLayerEnt(gd.clientModuleBaseAddress);
