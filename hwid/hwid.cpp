@@ -74,7 +74,7 @@ bool hwid::isUserHWIDValid() {
             "0025_3857_01AD_4E27", // Kwan
             "0025_38B5_11B6_11C1",  // Jasun
             "6212171000084", // CKL
-            "VDBK1BT4DJXB2C",// blackJai
+            "20140528B4749906190B",// blackJai
             "WD-WX42DC01H26E",// pat
             "E823_8FA6_BF53_0001_001B_444A_49C6_0E55", //qaz
 
